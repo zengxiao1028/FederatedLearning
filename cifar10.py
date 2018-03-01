@@ -102,7 +102,7 @@ optimizer3 = optim.SGD(net3.parameters(), lr=0.001, momentum=0.9)
 # We simply have to loop over our data iterator, and feed the inputs to the
 # network and optimize.
 j = 0
-for epoch in range(30):  # loop over the dataset multiple times
+for epoch in range(50):  # loop over the dataset multiple times
 
     running_loss = 0.0
     for i, data in enumerate(trainloader, 0):
@@ -138,14 +138,11 @@ for epoch in range(30):  # loop over the dataset multiple times
             grad_of_params[name] = parameter.grad.data
         for name, parameter in net2.named_parameters():
             grad_of_params2[name] = parameter.grad
-            grad_of_params[name] += parameter.grad.data
+            grad_of_params[name] = grad_of_params[name]+ parameter.grad.data
         for name, parameter in net3.named_parameters():
             grad_of_params3[name] = parameter.grad
-            print 'part'
-            print grad_of_params3[name]
-            grad_of_params[name] += parameter.grad.data
-            print 'total'
-            print grad_of_params[name]
+            grad_of_params[name] = grad_of_params[name]+ parameter.grad.data
+
         #grad_of_params = dict(Counter(grad_of_params1) + Counter(grad_of_params2) + Counter(grad_of_params3))
         updates = {}
         for key, value in grad_of_params.iteritems():
@@ -164,7 +161,6 @@ for epoch in range(30):  # loop over the dataset multiple times
                               range(length)]  # calculate the filter rank using l1
                 pos = np.argsort(norml1)[length - 1]
                 updates[key] = pos
-                print value_array.shape
             elif dim == 4:
                 norml1 = [np.sum(np.fabs(value_array[idx,:, :, :,])) for idx in
                               range(length)]  # calculate the filter rank using l1
@@ -178,7 +174,9 @@ for epoch in range(30):  # loop over the dataset multiple times
         #print len(grad_of_params)
         for name, parameter in net1.named_parameters():
             grad_of_params1[name] = parameter.grad
+
             tensor = grad_of_params[name][updates[name]]
+
             if grad_of_params1[name].data.numpy().ndim == 1:
                 tensor1 = torch.Tensor(1)
                 tensor1[0] = tensor
@@ -187,28 +185,28 @@ for epoch in range(30):  # loop over the dataset multiple times
             tensor = Variable(tensor)
             grad_of_params1[name][updates[name]] = tensor
 
+        if epoch > 4:
+            for name, parameter in net2.named_parameters():
+                grad_of_params2[name] = parameter.grad
+                tensor = grad_of_params[name][updates[name]]
+                if grad_of_params2[name].data.numpy().ndim == 1:
+                    tensor1 = torch.Tensor(1)
+                    tensor1[0] = tensor
+                    tensor = tensor1
+                #print tensor
+                tensor = Variable(tensor)
+                grad_of_params2[name][updates[name]] = tensor
 
-        for name, parameter in net2.named_parameters():
-            grad_of_params2[name] = parameter.grad
-            tensor = grad_of_params[name][updates[name]]
-            if grad_of_params2[name].data.numpy().ndim == 1:
-                tensor1 = torch.Tensor(1)
-                tensor1[0] = tensor
-                tensor = tensor1
-            #print tensor
-            tensor = Variable(tensor)
-            grad_of_params2[name][updates[name]] = tensor
-
-        for name, parameter in net3.named_parameters():
-            grad_of_params3[name] = parameter.grad
-            tensor = grad_of_params[name][updates[name]]
-            if grad_of_params3[name].data.numpy().ndim == 1:
-                tensor1 = torch.Tensor(1)
-                tensor1[0] = tensor
-                tensor = tensor1
-            #print tensor
-            tensor = Variable(tensor)
-            grad_of_params3[name][updates[name]] = tensor
+            for name, parameter in net3.named_parameters():
+                grad_of_params3[name] = parameter.grad
+                tensor = grad_of_params[name][updates[name]]
+                if grad_of_params3[name].data.numpy().ndim == 1:
+                    tensor1 = torch.Tensor(1)
+                    tensor1[0] = tensor
+                    tensor = tensor1
+                #print tensor
+                tensor = Variable(tensor)
+                grad_of_params3[name][updates[name]] = tensor
 
         optimizer1.step()
         optimizer2.step()
@@ -263,18 +261,31 @@ print('Predicted: ', ' '.join('%5s' % classes[predicted[j]]
 #
 # Let us look at how the network performs on the whole dataset.
 
-correct = 0
+correct1 = 0
+correct2 = 0
+correct3 = 0
 total = 0
 for data in testloader:
     images, labels = data
-    outputs = net1(Variable(images))
-    _, predicted = torch.max(outputs.data, 1)
+    outputs1 = net1(Variable(images))
+    outputs2 = net2(Variable(images))
+    outputs3 = net3(Variable(images))
+    _, predicted1 = torch.max(outputs1.data, 1)
+    _, predicted2 = torch.max(outputs2.data, 1)
+    _, predicted3 = torch.max(outputs3.data, 1)
     total += labels.size(0)
-    correct += (predicted == labels).sum()
+    correct1 += (predicted1 == labels).sum()
+    correct2 += (predicted2 == labels).sum()
+    correct3 += (predicted3 == labels).sum()
 
-print('Accuracy of the network on the 10000 test images: %d %%' % (
-    100 * correct / total))
+print('Net1 Accuracy of the network on the 10000 test images: %d %%' % (
+    100 * correct1 / total))
 
+print('Net2 Accuracy of the network on the 10000 test images: %d %%' % (
+    100 * correct2 / total))
+
+print('Net3 Accuracy of the network on the 10000 test images: %d %%' % (
+    100 * correct3 / total))
 ########################################################################
 # That looks waaay better than chance, which is 10% accuracy (randomly picking
 # a class out of 10 classes).
