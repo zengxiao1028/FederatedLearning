@@ -25,7 +25,6 @@ classes = ('plane', 'car', 'bird', 'cat',
 
 ########################################################################
 # Let us show some of the training images, for fun.
-
 import matplotlib.pyplot as plt
 import numpy as np
 
