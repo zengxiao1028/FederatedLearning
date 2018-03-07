@@ -184,17 +184,17 @@ for epoch in range(200):  # loop over the dataset multiple times
             if dim == 1:
                 norml1 = [np.sum(np.fabs(value_array[idx])) for idx in
                               range(length)]  # calculate the filter rank using l1
-                pos = np.argsort(norml1)[length - 1]
+                pos = np.argsort(norml1)[length/ 2:]
                 updates[key] = pos
             elif dim == 2:
                 norml1 = [np.sum(np.fabs(value_array[idx,:])) for idx in
                               range(length)]  # calculate the filter rank using l1
-                pos = np.argsort(norml1)[length - 1]
+                pos = np.argsort(norml1)[length/ 2:]
                 updates[key] = pos
             elif dim == 4:
                 norml1 = [np.sum(np.fabs(value_array[idx,:, :, :,])) for idx in
                               range(length)]  # calculate the filter rank using l1
-                pos = np.argsort(norml1)[length - 1]
+                pos = np.argsort(norml1)[length/ 2:]
                 updates[key] = pos
         #print updates
 
@@ -203,16 +203,13 @@ for epoch in range(200):  # loop over the dataset multiple times
             #print grad_of_params1[key],grad_of_params2[key],grad_of_params3[key]
         #print len(grad_of_params)
 
-        if epoch > 4:
+        if epoch > 200:
             for name, parameter in net1.named_parameters():
                 grad_of_params1[name] = parameter.grad
 
                 tensor = grad_of_params[name][updates[name]] / 3.0
 
-                if grad_of_params1[name].data.numpy().ndim == 1:
-                    tensor1 = torch.Tensor(1)
-                    tensor1[0] = tensor
-                    tensor = tensor1
+
                 # print tensor
                 tensor = Variable(tensor)
                 parameter.grad[updates[name]] = tensor
@@ -221,10 +218,7 @@ for epoch in range(200):  # loop over the dataset multiple times
                     grad_of_params2[name] = parameter.grad
 
                     tensor = grad_of_params[name][updates[name]] / 3.0
-                    if grad_of_params2[name].data.numpy().ndim == 1:
-                        tensor1 = torch.Tensor(1)
-                        tensor1[0] = tensor
-                        tensor = tensor1
+
                     # print tensor
                     tensor = Variable(tensor)
                     parameter.grad[updates[name]] = tensor
@@ -233,14 +227,18 @@ for epoch in range(200):  # loop over the dataset multiple times
                     grad_of_params3[name] = parameter.grad
 
                     tensor = grad_of_params[name][updates[name]] / 3.0
-                    if grad_of_params3[name].data.numpy().ndim == 1:
-                        tensor1 = torch.Tensor(1)
-                        tensor1[0] = tensor
-                        tensor = tensor1
+
                     # print tensor
                     tensor = Variable(tensor)
                     parameter.grad[updates[name]] = tensor
+        else:
 
+            for name, parameter in net1.named_parameters():
+                parameter.grad = Variable(grad_of_params[name] / 3.0)
+            for name, parameter in net2.named_parameters():
+                parameter.grad = Variable(grad_of_params[name] / 3.0)
+            for name, parameter in net3.named_parameters():
+                parameter.grad = Variable(grad_of_params[name] / 3.0)
 
         optimizer1.step()
         optimizer2.step()

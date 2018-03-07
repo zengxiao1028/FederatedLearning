@@ -205,41 +205,16 @@ for epoch in range(200):  # loop over the dataset multiple times
 
         if epoch > 4:
             for name, parameter in net1.named_parameters():
-                grad_of_params1[name] = parameter.grad
+                if name == 'fc3.weight':
+                    parameter.grad = Variable(grad_of_params[name] / 3.0)
 
-                tensor = grad_of_params[name][updates[name]] / 3.0
+            for name, parameter in net2.named_parameters():
+                if name == 'fc3.weight':
+                    parameter.grad = Variable(grad_of_params[name] / 3.0)
 
-                if grad_of_params1[name].data.numpy().ndim == 1:
-                    tensor1 = torch.Tensor(1)
-                    tensor1[0] = tensor
-                    tensor = tensor1
-                # print tensor
-                tensor = Variable(tensor)
-                parameter.grad[updates[name]] = tensor
-
-                for name, parameter in net2.named_parameters():
-                    grad_of_params2[name] = parameter.grad
-
-                    tensor = grad_of_params[name][updates[name]] / 3.0
-                    if grad_of_params2[name].data.numpy().ndim == 1:
-                        tensor1 = torch.Tensor(1)
-                        tensor1[0] = tensor
-                        tensor = tensor1
-                    # print tensor
-                    tensor = Variable(tensor)
-                    parameter.grad[updates[name]] = tensor
-
-                for name, parameter in net3.named_parameters():
-                    grad_of_params3[name] = parameter.grad
-
-                    tensor = grad_of_params[name][updates[name]] / 3.0
-                    if grad_of_params3[name].data.numpy().ndim == 1:
-                        tensor1 = torch.Tensor(1)
-                        tensor1[0] = tensor
-                        tensor = tensor1
-                    # print tensor
-                    tensor = Variable(tensor)
-                    parameter.grad[updates[name]] = tensor
+            for name, parameter in net3.named_parameters():
+                if name == 'fc3.weight':
+                    parameter.grad = Variable(grad_of_params[name] / 3.0)
 
 
         optimizer1.step()

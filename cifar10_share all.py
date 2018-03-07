@@ -1,6 +1,7 @@
 import torch
 import torchvision
 import torchvision.transforms as transforms
+from torch.utils.data.sampler import SubsetRandomSampler
 from collections import Counter
 ########################################################################
 # The output of torchvision datasets are PILImage images of range [0, 1].
@@ -12,14 +13,30 @@ transform = transforms.Compose(
 batch_size = 128
 trainset = torchvision.datasets.CIFAR10(root='./data', train=True,
                                         download=True, transform=transform)
-trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size*3,
-                                          shuffle=True, num_workers=2)
+indices = list(range(len(trainset)))
+len1 = len(trainset) / 3
+len2 = len1 * 2
+
+train1_idx, train2_idx, train3_idx = indices[0:len1], indices[len1:len2], indices[len2:]
+
+trainset1 = SubsetRandomSampler(train1_idx)
+trainset2 = SubsetRandomSampler(train2_idx)
+trainset3 = SubsetRandomSampler(train3_idx)
+
+
+trainloader1 = torch.utils.data.DataLoader(trainset, batch_size=batch_size, sampler= trainset1,
+                                          shuffle=False, num_workers=2)
+
+trainloader2 = torch.utils.data.DataLoader(trainset, batch_size=batch_size, sampler= trainset2,
+                                          shuffle=False, num_workers=2)
+trainloader3 = torch.utils.data.DataLoader(trainset, batch_size=batch_size, sampler= trainset3,
+                                          shuffle=False, num_workers=2)
 
 testset = torchvision.datasets.CIFAR10(root='./data', train=False,
                                        download=True, transform=transform)
 testloader = torch.utils.data.DataLoader(testset, batch_size=4,
                                          shuffle=False, num_workers=2)
-print (len(trainset))
+
 classes = ('plane', 'car', 'bird', 'cat',
            'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
 
@@ -39,13 +56,13 @@ def imshow(img):
 
 
 # get some random training images
-dataiter = iter(trainloader)
-images, labels = dataiter.next()
+dataiter = iter(trainloader1)
+images1, labels1 = dataiter.next()
 
 # show images
-imshow(torchvision.utils.make_grid(images))
+imshow(torchvision.utils.make_grid(images1))
 # print labels
-print(' '.join('%5s' % classes[labels[j]] for j in range(4)))
+print(' '.join('%5s' % classes[labels1[j]] for j in range(4)))
 
 
 ########################################################################
@@ -69,7 +86,6 @@ class Net(nn.Module):
         self.fc1 = nn.Linear(16 * 5 * 5, 120)
         self.fc2 = nn.Linear(120, 84)
         self.fc3 = nn.Linear(84, 10)
-        print self.fc1.weight
 
     def forward(self, x):
         x = self.pool(F.relu(self.conv1(x)))
@@ -82,8 +98,9 @@ class Net(nn.Module):
 
 
 net1 = Net()
-net2 = Net(net1)
-net3 = Net(net1)
+net2 = Net()
+net3 = Net()
+
 
 ########################################################################
 # 3. Define a Loss function and optimizer
@@ -97,6 +114,7 @@ optimizer1 = optim.SGD(net1.parameters(), lr=0.001, momentum=0.9)
 optimizer2 = optim.SGD(net2.parameters(), lr=0.001, momentum=0.9)
 optimizer3 = optim.SGD(net3.parameters(), lr=0.001, momentum=0.9)
 
+
 ########################################################################
 # 4. Train the network
 # ^^^^^^^^^^^^^^^^^^^^
@@ -105,24 +123,32 @@ optimizer3 = optim.SGD(net3.parameters(), lr=0.001, momentum=0.9)
 # We simply have to loop over our data iterator, and feed the inputs to the
 # network and optimize.
 j = 0
-for epoch in range(50):  # loop over the dataset multiple times
+for epoch in range(100):  # loop over the dataset multiple times
 
     running_loss = 0.0
-    for i, data in enumerate(trainloader, 0):
-        # get the inputs
-        inputs, labels = data
-        length = len(inputs)
-        inputs1, labels1 = inputs[0:length/3], labels[0:length/3]
-        inputs2, labels2 = inputs[length/3:length/3*2], labels[length/3: length/3*2]
-        inputs3, labels3 = inputs[length/3*2:], labels[length/3*2:]
+    dataiter1 = iter(trainloader1)
+    dataiter2 = iter(trainloader2)
+    dataiter3 = iter(trainloader3)
+    print epoch + 1
+    for i, data1 in enumerate(trainloader1, 0):
+
+        inputs1, labels1 = dataiter1.next()
+        inputs2, labels2 = dataiter2.next()
+        inputs3, labels3 = dataiter3.next()
+        length = len(inputs1)
+        #inputs1, labels1 = inputs[0:length/3], labels[0:length/3]
+        #inputs2, labels2 = inputs[length/3:length/3*2], labels[length/3: length/3*2]
+        #inputs3, labels3 = inputs[length/3*2:], labels[length/3*2:]
         # wrap them in Variable
         inputs1, labels1 = Variable(inputs1), Variable(labels1)
         inputs2, labels2 = Variable(inputs2), Variable(labels2)
         inputs3, labels3 = Variable(inputs3), Variable(labels3)
+
         # zero the parameter gradients
         optimizer1.zero_grad()
         optimizer2.zero_grad()
         optimizer3.zero_grad()
+
         # forward + backward + optimize
         outputs1 = net1(inputs1)
         outputs2 = net2(inputs2)
@@ -136,6 +162,7 @@ for epoch in range(50):  # loop over the dataset multiple times
         grad_of_params1 = {}
         grad_of_params2 = {}
         grad_of_params3 = {}
+        grad_of_params_total = {}
         grad_of_params = {}
         for name, parameter in net1.named_parameters():
             grad_of_params1[name] = parameter.grad
@@ -146,7 +173,6 @@ for epoch in range(50):  # loop over the dataset multiple times
         for name, parameter in net3.named_parameters():
             grad_of_params3[name] = parameter.grad
             grad_of_params[name] = grad_of_params[name]+ parameter.grad.data
-
         #grad_of_params = dict(Counter(grad_of_params1) + Counter(grad_of_params2) + Counter(grad_of_params3))
         updates = {}
         for key, value in grad_of_params.iteritems():
@@ -178,20 +204,23 @@ for epoch in range(50):  # loop over the dataset multiple times
         #print len(grad_of_params)
 
         for name, parameter in net1.named_parameters():
-            grad_of_params1[name] = grad_of_params[name] / 3.0
-            grad_of_params2[name] = grad_of_params[name] / 3.0
-            grad_of_params3[name] = grad_of_params[name] / 3.0
+            parameter.grad = Variable(grad_of_params[name] / 3.0)
+        for name, parameter in net2.named_parameters():
+            parameter.grad = Variable(grad_of_params[name] / 3.0)
+        for name, parameter in net3.named_parameters():
+            parameter.grad = Variable(grad_of_params[name] / 3.0)
+
 
         optimizer1.step()
         optimizer2.step()
         optimizer3.step()
-
         # print statistics
         running_loss += loss1.data[0]
-        if i % 2000 == 1999:    # print every 2000 mini-batches
+        if i % 100 == 0:    # print every 2000 mini-batches
             print('[%d, %5d] loss: %.3f' %
                   (epoch + 1, i + 1, running_loss / 2000))
             running_loss = 0.0
+
 
 print('Finished Training')
 
@@ -208,27 +237,7 @@ print('Finished Training')
 #
 # Okay, first step. Let us display an image from the test set to get familiar.
 
-dataiter = iter(testloader)
-images, labels = dataiter.next()
 
-# print images
-imshow(torchvision.utils.make_grid(images))
-print('GroundTruth: ', ' '.join('%5s' % classes[labels[j]] for j in range(4)))
-
-########################################################################
-# Okay, now let us see what the neural network thinks these examples above are:
-
-outputs = net1(Variable(images))
-
-########################################################################
-# The outputs are energies for the 10 classes.
-# Higher the energy for a class, the more the network
-# thinks that the image is of the particular class.
-# So, let's get the index of the highest energy:
-_, predicted = torch.max(outputs.data, 1)
-
-print('Predicted: ', ' '.join('%5s' % classes[predicted[j]]
-                              for j in range(4)))
 
 ########################################################################
 # The results seem pretty good.

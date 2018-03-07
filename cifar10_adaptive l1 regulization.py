@@ -156,6 +156,31 @@ for epoch in range(200):  # loop over the dataset multiple times
         loss1 = criterion(outputs1, labels1)
         loss2 = criterion(outputs2, labels2)
         loss3 = criterion(outputs3, labels3)
+        l1_reg1 = None
+        for W in net1.parameters():
+            if l1_reg1 is None:
+                l1_reg1 = W.norm(1)
+            else:
+                l1_reg1 = l1_reg1 + W.norm(1)
+        l1_reg2 = None
+        for W in net2.parameters():
+            if l1_reg2 is None:
+                l1_reg2 = W.norm(1)
+            else:
+                l1_reg2 = l1_reg2 + W.norm(1)
+        l1_reg3 = None
+        for W in net3.parameters():
+            if l1_reg3 is None:
+                l1_reg3 = W.norm(1)
+            else:
+                l1_reg3 = l1_reg3 + W.norm(1)
+        reg_lambda = 0.001
+
+        print 'loss1: %.3f, l1_reg1: %.3f' % (loss1, l1_reg1*reg_lambda)
+        loss1 = loss1 + reg_lambda * l1_reg1
+        loss2 = loss2 + reg_lambda * l1_reg2
+        loss3 = loss3 + reg_lambda * l1_reg3
+
         loss1.backward()
         loss2.backward()
         loss3.backward()
@@ -184,17 +209,25 @@ for epoch in range(200):  # loop over the dataset multiple times
             if dim == 1:
                 norml1 = [np.sum(np.fabs(value_array[idx])) for idx in
                               range(length)]  # calculate the filter rank using l1
-                pos = np.argsort(norml1)[length - 1]
+                pos = np.argsort(norml1)[length/ 2:]
                 updates[key] = pos
             elif dim == 2:
                 norml1 = [np.sum(np.fabs(value_array[idx,:])) for idx in
                               range(length)]  # calculate the filter rank using l1
-                pos = np.argsort(norml1)[length - 1]
+                if key == 'fc1.weight':
+                    pos = np.argsort(norml1)[length/5*1:]
+                elif key == 'fc2.weight':
+                    pos = np.argsort(norml1)[length / 3 * 2:]
+                elif key == 'fc3.weight':
+                    pos = np.argsort(norml1)[length / 2:]
                 updates[key] = pos
             elif dim == 4:
                 norml1 = [np.sum(np.fabs(value_array[idx,:, :, :,])) for idx in
                               range(length)]  # calculate the filter rank using l1
-                pos = np.argsort(norml1)[length - 1]
+                if key == 'conv1.weight':
+                    pos = np.argsort(norml1)[length/2 * 0:]
+                elif key == 'conv2.weight':
+                    pos = np.argsort(norml1)[length/5 * 1:]
                 updates[key] = pos
         #print updates
 
@@ -203,16 +236,11 @@ for epoch in range(200):  # loop over the dataset multiple times
             #print grad_of_params1[key],grad_of_params2[key],grad_of_params3[key]
         #print len(grad_of_params)
 
-        if epoch > 4:
+        if epoch > -1:
             for name, parameter in net1.named_parameters():
                 grad_of_params1[name] = parameter.grad
 
                 tensor = grad_of_params[name][updates[name]] / 3.0
-
-                if grad_of_params1[name].data.numpy().ndim == 1:
-                    tensor1 = torch.Tensor(1)
-                    tensor1[0] = tensor
-                    tensor = tensor1
                 # print tensor
                 tensor = Variable(tensor)
                 parameter.grad[updates[name]] = tensor
@@ -221,10 +249,7 @@ for epoch in range(200):  # loop over the dataset multiple times
                     grad_of_params2[name] = parameter.grad
 
                     tensor = grad_of_params[name][updates[name]] / 3.0
-                    if grad_of_params2[name].data.numpy().ndim == 1:
-                        tensor1 = torch.Tensor(1)
-                        tensor1[0] = tensor
-                        tensor = tensor1
+
                     # print tensor
                     tensor = Variable(tensor)
                     parameter.grad[updates[name]] = tensor
@@ -233,25 +258,29 @@ for epoch in range(200):  # loop over the dataset multiple times
                     grad_of_params3[name] = parameter.grad
 
                     tensor = grad_of_params[name][updates[name]] / 3.0
-                    if grad_of_params3[name].data.numpy().ndim == 1:
-                        tensor1 = torch.Tensor(1)
-                        tensor1[0] = tensor
-                        tensor = tensor1
+
                     # print tensor
                     tensor = Variable(tensor)
                     parameter.grad[updates[name]] = tensor
+        else:
 
+            for name, parameter in net1.named_parameters():
+                parameter.grad = Variable(grad_of_params[name] / 3.0)
+            for name, parameter in net2.named_parameters():
+                parameter.grad = Variable(grad_of_params[name] / 3.0)
+            for name, parameter in net3.named_parameters():
+                parameter.grad = Variable(grad_of_params[name] / 3.0)
 
         optimizer1.step()
         optimizer2.step()
         optimizer3.step()
         # print statistics
         running_loss += loss1.data[0]
-        if i % 100 == 0:    # print every 2000 mini-batches
+        if i % 100 == 0:
+            print 'loss'# print every 2000 mini-batches
             print('[%d, %5d] loss: %.3f' %
                   (epoch + 1, i + 1, running_loss / 2000))
             running_loss = 0.0
-
 
 print('Finished Training')
 
